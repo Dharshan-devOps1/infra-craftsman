@@ -28,8 +28,39 @@ export const awsModules: TerraformModule[] = [
     description: "Elastic Compute Cloud instances",
     category: "compute",
     parameters: [
-      { name: "instance_type", type: "string", description: "EC2 instance type", required: true, defaultValue: "t3.micro", options: ["t3.micro", "t3.small", "t3.medium", "t3.large"] },
-      { name: "instance_count", type: "number", description: "Number of instances", required: true, defaultValue: "1" }
+      { 
+        name: "instance_type", 
+        type: "string", 
+        description: "EC2 instance type", 
+        required: true, 
+        defaultValue: "t3.micro", 
+        options: [
+          // General Purpose
+          "t3.nano", "t3.micro", "t3.small", "t3.medium", "t3.large", "t3.xlarge", "t3.2xlarge",
+          "t3a.nano", "t3a.micro", "t3a.small", "t3a.medium", "t3a.large", "t3a.xlarge", "t3a.2xlarge",
+          "t4g.nano", "t4g.micro", "t4g.small", "t4g.medium", "t4g.large", "t4g.xlarge", "t4g.2xlarge",
+          "m5.large", "m5.xlarge", "m5.2xlarge", "m5.4xlarge", "m5.8xlarge", "m5.12xlarge", "m5.16xlarge", "m5.24xlarge",
+          "m5a.large", "m5a.xlarge", "m5a.2xlarge", "m5a.4xlarge", "m5a.8xlarge", "m5a.12xlarge", "m5a.16xlarge", "m5a.24xlarge",
+          "m6i.large", "m6i.xlarge", "m6i.2xlarge", "m6i.4xlarge", "m6i.8xlarge", "m6i.12xlarge", "m6i.16xlarge", "m6i.24xlarge", "m6i.32xlarge",
+          // Compute Optimized
+          "c5.large", "c5.xlarge", "c5.2xlarge", "c5.4xlarge", "c5.9xlarge", "c5.12xlarge", "c5.18xlarge", "c5.24xlarge",
+          "c5a.large", "c5a.xlarge", "c5a.2xlarge", "c5a.4xlarge", "c5a.8xlarge", "c5a.12xlarge", "c5a.16xlarge", "c5a.24xlarge",
+          "c6i.large", "c6i.xlarge", "c6i.2xlarge", "c6i.4xlarge", "c6i.8xlarge", "c6i.12xlarge", "c6i.16xlarge", "c6i.24xlarge", "c6i.32xlarge",
+          // Memory Optimized
+          "r5.large", "r5.xlarge", "r5.2xlarge", "r5.4xlarge", "r5.8xlarge", "r5.12xlarge", "r5.16xlarge", "r5.24xlarge",
+          "r5a.large", "r5a.xlarge", "r5a.2xlarge", "r5a.4xlarge", "r5a.8xlarge", "r5a.12xlarge", "r5a.16xlarge", "r5a.24xlarge",
+          "r6i.large", "r6i.xlarge", "r6i.2xlarge", "r6i.4xlarge", "r6i.8xlarge", "r6i.12xlarge", "r6i.16xlarge", "r6i.24xlarge", "r6i.32xlarge",
+          // Storage Optimized
+          "i3.large", "i3.xlarge", "i3.2xlarge", "i3.4xlarge", "i3.8xlarge", "i3.16xlarge",
+          "d3.xlarge", "d3.2xlarge", "d3.4xlarge", "d3.8xlarge",
+          // Accelerated Computing
+          "p3.2xlarge", "p3.8xlarge", "p3.16xlarge", "p3dn.24xlarge",
+          "p4d.24xlarge", "g4dn.xlarge", "g4dn.2xlarge", "g4dn.4xlarge", "g4dn.8xlarge", "g4dn.12xlarge", "g4dn.16xlarge"
+        ]
+      },
+      { name: "instance_count", type: "number", description: "Number of instances", required: true, defaultValue: "1" },
+      { name: "ami_id", type: "string", description: "AMI ID for instances", required: false, defaultValue: "ami-0c02fb55956c7d316" },
+      { name: "key_name", type: "string", description: "EC2 Key Pair name", required: false }
     ]
   },
   {
@@ -40,6 +71,38 @@ export const awsModules: TerraformModule[] = [
     parameters: [
       { name: "bucket_name", type: "string", description: "S3 bucket name", required: true },
       { name: "versioning", type: "boolean", description: "Enable versioning", required: false, defaultValue: "false" }
+    ]
+  },
+
+  // Networking modules (missing from current set)
+  {
+    id: "route_table",
+    name: "Route Table",
+    description: "Route table for VPC routing configuration",
+    category: "networking",
+    parameters: [
+      { name: "vpc_id", type: "string", description: "VPC ID for route table", required: true },
+      { name: "public_route_table", type: "boolean", description: "Create public route table", required: false, defaultValue: "true" },
+      { name: "private_route_table", type: "boolean", description: "Create private route table", required: false, defaultValue: "true" }
+    ]
+  },
+  {
+    id: "internet_gateway",
+    name: "Internet Gateway",
+    description: "Internet gateway for VPC internet access",
+    category: "networking",
+    parameters: [
+      { name: "vpc_id", type: "string", description: "VPC ID to attach gateway", required: true }
+    ]
+  },
+  {
+    id: "nat_gateway",
+    name: "NAT Gateway",
+    description: "NAT gateway for private subnet internet access",
+    category: "networking",
+    parameters: [
+      { name: "subnet_id", type: "string", description: "Public subnet ID for NAT gateway", required: true },
+      { name: "allocation_id", type: "string", description: "Elastic IP allocation ID", required: false }
     ]
   },
 
@@ -338,7 +401,91 @@ export const awsModules: TerraformModule[] = [
 ];
 
 export const azureModules: TerraformModule[] = [
+  // Core Networking modules first
+  {
+    id: "virtual_network",
+    name: "Virtual Network",
+    description: "Azure Virtual Network for network isolation",
+    category: "networking",
+    parameters: [
+      { name: "vnet_name", type: "string", description: "Virtual network name", required: true, defaultValue: "my-vnet" },
+      { name: "address_space", type: "list", description: "Address space for VNet", required: true, defaultValue: "10.0.0.0/16" },
+      { name: "dns_servers", type: "list", description: "Custom DNS servers", required: false }
+    ]
+  },
+  {
+    id: "subnet",
+    name: "Subnet",
+    description: "Azure subnet within virtual network",
+    category: "networking",
+    parameters: [
+      { name: "subnet_name", type: "string", description: "Subnet name", required: true, defaultValue: "my-subnet" },
+      { name: "address_prefixes", type: "list", description: "Address prefixes for subnet", required: true, defaultValue: "10.0.1.0/24" },
+      { name: "virtual_network_name", type: "string", description: "Virtual network name", required: true }
+    ]
+  },
+  {
+    id: "route_table",
+    name: "Route Table",
+    description: "Azure route table for custom routing",
+    category: "networking",
+    parameters: [
+      { name: "route_table_name", type: "string", description: "Route table name", required: true, defaultValue: "my-route-table" },
+      { name: "disable_bgp_route_propagation", type: "boolean", description: "Disable BGP route propagation", required: false, defaultValue: "false" }
+    ]
+  },
+  {
+    id: "nat_gateway",
+    name: "NAT Gateway",
+    description: "Azure NAT Gateway for outbound internet connectivity",
+    category: "networking",
+    parameters: [
+      { name: "nat_gateway_name", type: "string", description: "NAT Gateway name", required: true, defaultValue: "my-nat-gateway" },
+      { name: "sku_name", type: "string", description: "SKU name", required: true, defaultValue: "Standard", options: ["Standard"] },
+      { name: "idle_timeout_in_minutes", type: "number", description: "Idle timeout in minutes", required: false, defaultValue: "4" }
+    ]
+  },
+
   // Compute modules
+  {
+    id: "virtual_machine",
+    name: "Virtual Machine",
+    description: "Azure Virtual Machine with comprehensive size options",
+    category: "compute",
+    parameters: [
+      { name: "vm_name", type: "string", description: "Virtual machine name", required: true, defaultValue: "my-vm" },
+      { 
+        name: "vm_size", 
+        type: "string", 
+        description: "Virtual machine size", 
+        required: true, 
+        defaultValue: "Standard_B2s", 
+        options: [
+          // Basic (B-series)
+          "Standard_B1ls", "Standard_B1s", "Standard_B1ms", "Standard_B2s", "Standard_B2ms", "Standard_B4ms", "Standard_B8ms", "Standard_B12ms", "Standard_B16ms", "Standard_B20ms",
+          // General Purpose (D-series)
+          "Standard_D2s_v3", "Standard_D4s_v3", "Standard_D8s_v3", "Standard_D16s_v3", "Standard_D32s_v3", "Standard_D48s_v3", "Standard_D64s_v3",
+          "Standard_D2s_v4", "Standard_D4s_v4", "Standard_D8s_v4", "Standard_D16s_v4", "Standard_D32s_v4", "Standard_D48s_v4", "Standard_D64s_v4",
+          "Standard_D2s_v5", "Standard_D4s_v5", "Standard_D8s_v5", "Standard_D16s_v5", "Standard_D32s_v5", "Standard_D48s_v5", "Standard_D64s_v5", "Standard_D96s_v5",
+          // Compute Optimized (F-series)
+          "Standard_F2s_v2", "Standard_F4s_v2", "Standard_F8s_v2", "Standard_F16s_v2", "Standard_F32s_v2", "Standard_F48s_v2", "Standard_F64s_v2", "Standard_F72s_v2",
+          // Memory Optimized (E-series)
+          "Standard_E2s_v3", "Standard_E4s_v3", "Standard_E8s_v3", "Standard_E16s_v3", "Standard_E20s_v3", "Standard_E32s_v3", "Standard_E48s_v3", "Standard_E64s_v3",
+          "Standard_E2s_v4", "Standard_E4s_v4", "Standard_E8s_v4", "Standard_E16s_v4", "Standard_E20s_v4", "Standard_E32s_v4", "Standard_E48s_v4", "Standard_E64s_v4",
+          "Standard_E2s_v5", "Standard_E4s_v5", "Standard_E8s_v5", "Standard_E16s_v5", "Standard_E20s_v5", "Standard_E32s_v5", "Standard_E48s_v5", "Standard_E64s_v5", "Standard_E96s_v5",
+          // High Performance Compute (H-series)
+          "Standard_H8", "Standard_H16", "Standard_H8m", "Standard_H16m", "Standard_H16r", "Standard_H16mr",
+          // GPU (N-series)
+          "Standard_NC6", "Standard_NC12", "Standard_NC24", "Standard_NC6s_v3", "Standard_NC12s_v3", "Standard_NC24s_v3",
+          "Standard_ND6s", "Standard_ND12s", "Standard_ND24s", "Standard_ND40rs_v2",
+          "Standard_NV6", "Standard_NV12", "Standard_NV24", "Standard_NV12s_v3", "Standard_NV24s_v3", "Standard_NV48s_v3"
+        ]
+      },
+      { name: "admin_username", type: "string", description: "Administrator username", required: true, defaultValue: "azureuser" },
+      { name: "disable_password_authentication", type: "boolean", description: "Disable password authentication", required: false, defaultValue: "true" },
+      { name: "source_image_reference", type: "string", description: "OS image reference", required: true, defaultValue: "Ubuntu", options: ["Ubuntu", "CentOS", "RHEL", "Windows", "Debian"] }
+    ]
+  },
   {
     id: "container_group",
     name: "Container Group",
@@ -555,6 +702,85 @@ export const azureModules: TerraformModule[] = [
 
 export const gcpModules: TerraformModule[] = [
   // Compute modules
+  // Core Networking modules first
+  {
+    id: "compute_network",
+    name: "VPC Network",
+    description: "Google Cloud VPC network for network isolation",
+    category: "networking",
+    parameters: [
+      { name: "network_name", type: "string", description: "VPC network name", required: true, defaultValue: "my-vpc-network" },
+      { name: "auto_create_subnetworks", type: "boolean", description: "Auto create subnetworks", required: false, defaultValue: "false" },
+      { name: "routing_mode", type: "string", description: "Routing mode", required: true, defaultValue: "REGIONAL", options: ["REGIONAL", "GLOBAL"] }
+    ]
+  },
+  {
+    id: "compute_subnetwork",
+    name: "Subnetwork",
+    description: "Google Cloud subnetwork within VPC",
+    category: "networking",
+    parameters: [
+      { name: "subnetwork_name", type: "string", description: "Subnetwork name", required: true, defaultValue: "my-subnetwork" },
+      { name: "ip_cidr_range", type: "string", description: "IP CIDR range for subnetwork", required: true, defaultValue: "10.0.1.0/24" },
+      { name: "region", type: "string", description: "Region for subnetwork", required: true, defaultValue: "us-central1" },
+      { name: "network", type: "string", description: "VPC network name", required: true }
+    ]
+  },
+  {
+    id: "compute_route",
+    name: "Route",
+    description: "Google Cloud custom route for traffic routing",
+    category: "networking",
+    parameters: [
+      { name: "route_name", type: "string", description: "Route name", required: true, defaultValue: "my-route" },
+      { name: "dest_range", type: "string", description: "Destination IP range", required: true, defaultValue: "0.0.0.0/0" },
+      { name: "network", type: "string", description: "VPC network name", required: true },
+      { name: "next_hop_gateway", type: "string", description: "Next hop gateway", required: false, defaultValue: "default-internet-gateway" }
+    ]
+  },
+
+  {
+    id: "compute_instance",
+    name: "Compute Instance",
+    description: "Google Cloud Compute Engine virtual machine",
+    category: "compute",
+    parameters: [
+      { name: "instance_name", type: "string", description: "Instance name", required: true, defaultValue: "my-instance" },
+      { 
+        name: "machine_type", 
+        type: "string", 
+        description: "Machine type", 
+        required: true, 
+        defaultValue: "e2-medium", 
+        options: [
+          // E2 Series (General-purpose)
+          "e2-micro", "e2-small", "e2-medium", "e2-standard-2", "e2-standard-4", "e2-standard-8", "e2-standard-16", "e2-standard-32",
+          "e2-highmem-2", "e2-highmem-4", "e2-highmem-8", "e2-highmem-16",
+          "e2-highcpu-2", "e2-highcpu-4", "e2-highcpu-8", "e2-highcpu-16", "e2-highcpu-32",
+          // N1 Series (General-purpose)
+          "n1-standard-1", "n1-standard-2", "n1-standard-4", "n1-standard-8", "n1-standard-16", "n1-standard-32", "n1-standard-64", "n1-standard-96",
+          "n1-highmem-2", "n1-highmem-4", "n1-highmem-8", "n1-highmem-16", "n1-highmem-32", "n1-highmem-64", "n1-highmem-96",
+          "n1-highcpu-2", "n1-highcpu-4", "n1-highcpu-8", "n1-highcpu-16", "n1-highcpu-32", "n1-highcpu-64", "n1-highcpu-96",
+          // N2 Series (General-purpose)
+          "n2-standard-2", "n2-standard-4", "n2-standard-8", "n2-standard-16", "n2-standard-32", "n2-standard-48", "n2-standard-64", "n2-standard-80", "n2-standard-128",
+          "n2-highmem-2", "n2-highmem-4", "n2-highmem-8", "n2-highmem-16", "n2-highmem-32", "n2-highmem-48", "n2-highmem-64", "n2-highmem-80", "n2-highmem-96", "n2-highmem-128",
+          "n2-highcpu-2", "n2-highcpu-4", "n2-highcpu-8", "n2-highcpu-16", "n2-highcpu-32", "n2-highcpu-48", "n2-highcpu-64", "n2-highcpu-80", "n2-highcpu-96",
+          // C2 Series (Compute-optimized)
+          "c2-standard-4", "c2-standard-8", "c2-standard-16", "c2-standard-30", "c2-standard-60",
+          // M1 Series (Memory-optimized)
+          "m1-ultramem-40", "m1-ultramem-80", "m1-ultramem-160",
+          "m1-megamem-96",
+          // A2 Series (Accelerator-optimized)
+          "a2-highgpu-1g", "a2-highgpu-2g", "a2-highgpu-4g", "a2-highgpu-8g", "a2-megagpu-16g",
+          // T2D Series (General-purpose AMD)
+          "t2d-standard-1", "t2d-standard-2", "t2d-standard-4", "t2d-standard-8", "t2d-standard-16", "t2d-standard-32", "t2d-standard-48", "t2d-standard-60"
+        ]
+      },
+      { name: "zone", type: "string", description: "Zone for instance", required: true, defaultValue: "us-central1-a" },
+      { name: "source_image", type: "string", description: "Source image", required: true, defaultValue: "debian-cloud/debian-11" },
+      { name: "disk_size_gb", type: "number", description: "Boot disk size in GB", required: true, defaultValue: "20" }
+    ]
+  },
   {
     id: "compute_instance_template",
     name: "Compute Instance Template",
@@ -562,7 +788,28 @@ export const gcpModules: TerraformModule[] = [
     category: "compute",
     parameters: [
       { name: "template_name", type: "string", description: "Name of instance template", required: true, defaultValue: "my-instance-template" },
-      { name: "machine_type", type: "string", description: "Machine type", required: true, defaultValue: "e2-medium", options: ["e2-micro", "e2-small", "e2-medium", "e2-standard-2", "e2-standard-4"] },
+      { 
+        name: "machine_type", 
+        type: "string", 
+        description: "Machine type", 
+        required: true, 
+        defaultValue: "e2-medium", 
+        options: [
+          // E2 Series (General-purpose)
+          "e2-micro", "e2-small", "e2-medium", "e2-standard-2", "e2-standard-4", "e2-standard-8", "e2-standard-16", "e2-standard-32",
+          "e2-highmem-2", "e2-highmem-4", "e2-highmem-8", "e2-highmem-16",
+          "e2-highcpu-2", "e2-highcpu-4", "e2-highcpu-8", "e2-highcpu-16", "e2-highcpu-32",
+          // N1 Series
+          "n1-standard-1", "n1-standard-2", "n1-standard-4", "n1-standard-8", "n1-standard-16", "n1-standard-32",
+          "n1-highmem-2", "n1-highmem-4", "n1-highmem-8", "n1-highmem-16", "n1-highmem-32",
+          "n1-highcpu-2", "n1-highcpu-4", "n1-highcpu-8", "n1-highcpu-16", "n1-highcpu-32",
+          // N2 Series
+          "n2-standard-2", "n2-standard-4", "n2-standard-8", "n2-standard-16", "n2-standard-32",
+          "n2-highmem-2", "n2-highmem-4", "n2-highmem-8", "n2-highmem-16", "n2-highmem-32",
+          // C2 Series
+          "c2-standard-4", "c2-standard-8", "c2-standard-16", "c2-standard-30"
+        ]
+      },
       { name: "source_image", type: "string", description: "Source image", required: true, defaultValue: "debian-cloud/debian-11" },
       { name: "disk_size_gb", type: "number", description: "Boot disk size in GB", required: true, defaultValue: "20" }
     ]
