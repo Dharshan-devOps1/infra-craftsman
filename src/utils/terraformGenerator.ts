@@ -294,10 +294,19 @@ export async function generateTerraformProject(options: GenerateOptions): Promis
     
     categoryModules.forEach(module => {
       const moduleParams = parameters[module.id] || {};
-      const providerTemplates = templates[provider as keyof typeof templates];
-      const template = providerTemplates?.[module.id as keyof typeof providerTemplates];
       
-      if (template && typeof template === 'function') {
+      // Get the appropriate template function for this provider and module
+      let template: ((params: Record<string, string>) => string) | undefined;
+      
+      if (provider === 'aws' && awsTemplates[module.id as keyof typeof awsTemplates]) {
+        template = awsTemplates[module.id as keyof typeof awsTemplates];
+      } else if (provider === 'azure' && azureTemplates[module.id as keyof typeof azureTemplates]) {
+        template = azureTemplates[module.id as keyof typeof azureTemplates];
+      } else if (provider === 'gcp' && gcpTemplates[module.id as keyof typeof gcpTemplates]) {
+        template = gcpTemplates[module.id as keyof typeof gcpTemplates];
+      }
+      
+      if (template) {
         const content = template(moduleParams);
         categoryFolder.file(`${module.id}.tf`, content);
       }
