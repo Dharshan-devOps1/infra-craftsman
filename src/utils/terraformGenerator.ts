@@ -2,6 +2,7 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { TerraformModule } from '@/components/ModuleSelector';
 import { awsModules, azureModules, gcpModules } from '@/data/modules';
+import { awsTemplates, azureTemplates, gcpTemplates, awsMissingTemplates, azureMissingTemplates } from './terraformTemplates';
 
 interface GenerateOptions {
   provider: string;
@@ -9,7 +10,7 @@ interface GenerateOptions {
   parameters: Record<string, Record<string, string>>;
 }
 
-import { awsTemplates, azureTemplates, gcpTemplates } from './terraformTemplates';
+
 
 // Provider-specific templates mapping
 const templates = {
@@ -298,11 +299,13 @@ export async function generateTerraformProject(options: GenerateOptions): Promis
       // Get the appropriate template function for this provider and module
       let template: ((params: Record<string, string>) => string) | undefined;
       
-      if (provider === 'aws' && awsTemplates[module.id as keyof typeof awsTemplates]) {
-        template = awsTemplates[module.id as keyof typeof awsTemplates];
-      } else if (provider === 'azure' && azureTemplates[module.id as keyof typeof azureTemplates]) {
-        template = azureTemplates[module.id as keyof typeof azureTemplates];
-      } else if (provider === 'gcp' && gcpTemplates[module.id as keyof typeof gcpTemplates]) {
+      if (provider === 'aws') {
+        template = awsTemplates[module.id as keyof typeof awsTemplates] || 
+                  awsMissingTemplates[module.id as keyof typeof awsMissingTemplates];
+      } else if (provider === 'azure') {
+        template = azureTemplates[module.id as keyof typeof azureTemplates] || 
+                  azureMissingTemplates[module.id as keyof typeof azureMissingTemplates];
+      } else if (provider === 'gcp') {
         template = gcpTemplates[module.id as keyof typeof gcpTemplates];
       }
       
