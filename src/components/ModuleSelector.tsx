@@ -1,7 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Network, Server, Database, Shield } from "lucide-react";
 
 export interface TerraformModule {
   id: string;
@@ -20,6 +19,8 @@ export interface ModuleParameter {
   options?: string[];
 }
 
+import { Network, Server, Database, Shield, Users, Activity, Eye } from "lucide-react";
+
 const moduleCategories = [
   {
     id: "networking",
@@ -29,7 +30,7 @@ const moduleCategories = [
   },
   {
     id: "compute",
-    name: "Compute",
+    name: "Compute", 
     icon: <Server className="h-5 w-5" />,
     color: "bg-green-500/10 text-green-400 border-green-500/20"
   },
@@ -40,55 +41,32 @@ const moduleCategories = [
     color: "bg-purple-500/10 text-purple-400 border-purple-500/20"
   },
   {
+    id: "database",
+    name: "Database",
+    icon: <Database className="h-5 w-5" />,
+    color: "bg-orange-500/10 text-orange-400 border-orange-500/20"
+  },
+  {
     id: "security",
     name: "Security",
     icon: <Shield className="h-5 w-5" />,
     color: "bg-red-500/10 text-red-400 border-red-500/20"
+  },
+  {
+    id: "identity",
+    name: "Identity & Access",
+    icon: <Users className="h-5 w-5" />,
+    color: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
+  },
+  {
+    id: "monitoring",
+    name: "Monitoring & Logging",
+    icon: <Activity className="h-5 w-5" />,
+    color: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
   }
 ];
 
-const awsModules: TerraformModule[] = [
-  {
-    id: "vpc",
-    name: "VPC",
-    description: "Virtual Private Cloud with customizable CIDR blocks",
-    category: "networking",
-    parameters: [
-      { name: "vpc_cidr", type: "string", description: "CIDR block for VPC", required: true, defaultValue: "10.0.0.0/16" },
-      { name: "enable_dns_hostnames", type: "boolean", description: "Enable DNS hostnames", required: false, defaultValue: "true" }
-    ]
-  },
-  {
-    id: "subnet",
-    name: "Subnets",
-    description: "Public and private subnets across availability zones",
-    category: "networking",
-    parameters: [
-      { name: "public_subnet_cidrs", type: "list", description: "CIDR blocks for public subnets", required: true, defaultValue: "10.0.1.0/24,10.0.2.0/24" },
-      { name: "private_subnet_cidrs", type: "list", description: "CIDR blocks for private subnets", required: true, defaultValue: "10.0.10.0/24,10.0.20.0/24" }
-    ]
-  },
-  {
-    id: "ec2",
-    name: "EC2 Instances",
-    description: "Elastic Compute Cloud instances",
-    category: "compute",
-    parameters: [
-      { name: "instance_type", type: "string", description: "EC2 instance type", required: true, defaultValue: "t3.micro", options: ["t3.micro", "t3.small", "t3.medium", "t3.large"] },
-      { name: "instance_count", type: "number", description: "Number of instances", required: true, defaultValue: "1" }
-    ]
-  },
-  {
-    id: "s3",
-    name: "S3 Bucket",
-    description: "Simple Storage Service bucket",
-    category: "storage",
-    parameters: [
-      { name: "bucket_name", type: "string", description: "S3 bucket name", required: true },
-      { name: "versioning", type: "boolean", description: "Enable versioning", required: false, defaultValue: "false" }
-    ]
-  }
-];
+import { awsModules, azureModules, gcpModules } from "@/data/modules";
 
 interface ModuleSelectorProps {
   provider: string;
@@ -97,7 +75,16 @@ interface ModuleSelectorProps {
 }
 
 export function ModuleSelector({ provider, selectedModules, onModuleToggle }: ModuleSelectorProps) {
-  const modules = provider === "aws" ? awsModules : []; // We'll add Azure and GCP modules later
+  const getModules = () => {
+    switch (provider) {
+      case "aws": return awsModules;
+      case "azure": return azureModules;
+      case "gcp": return gcpModules;
+      default: return [];
+    }
+  };
+  
+  const modules = getModules();
 
   const getModulesByCategory = (categoryId: string) => {
     return modules.filter(module => module.category === categoryId);
@@ -172,4 +159,3 @@ export function ModuleSelector({ provider, selectedModules, onModuleToggle }: Mo
   );
 }
 
-export { awsModules };

@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { TerraformModule, awsModules } from "./ModuleSelector";
+import { TerraformModule } from "./ModuleSelector";
+import { awsModules, azureModules, gcpModules } from "@/data/modules";
 
 interface ParameterFormProps {
   provider: string;
@@ -15,7 +16,16 @@ interface ParameterFormProps {
 }
 
 export function ParameterForm({ provider, selectedModules, parameters, onParameterChange }: ParameterFormProps) {
-  const modules = provider === "aws" ? awsModules : [];
+  const getModules = () => {
+    switch (provider) {
+      case "aws": return awsModules;
+      case "azure": return azureModules; 
+      case "gcp": return gcpModules;
+      default: return [];
+    }
+  };
+  
+  const modules = getModules();
   const selectedModuleData = modules.filter(module => selectedModules.includes(module.id));
 
   if (selectedModuleData.length === 0) {

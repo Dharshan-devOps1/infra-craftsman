@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
-import { TerraformModule, awsModules } from '@/components/ModuleSelector';
+import { TerraformModule } from '@/components/ModuleSelector';
+import { awsModules, azureModules, gcpModules } from '@/data/modules';
 
 interface GenerateOptions {
   provider: string;
@@ -8,190 +9,22 @@ interface GenerateOptions {
   parameters: Record<string, Record<string, string>>;
 }
 
-// Terraform templates for AWS modules
+import { awsTemplates, azureTemplates, gcpTemplates } from './terraformTemplates';
+
+// Provider-specific templates mapping
 const templates = {
-  aws: {
-    vpc: (params: Record<string, string>) => `# VPC Configuration
-resource "aws_vpc" "main" {
-  cidr_block           = "${params.vpc_cidr || '10.0.0.0/16'}"
-  enable_dns_hostnames = ${params.enable_dns_hostnames || 'true'}
-  enable_dns_support   = true
-
-  tags = {
-    Name = "\${var.project_name}-vpc"
-  }
-}
-
-# Internet Gateway
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
-
-  tags = {
-    Name = "\${var.project_name}-igw"
-  }
-}`,
-
-    subnet: (params: Record<string, string>) => {
-      const publicCidrs = params.public_subnet_cidrs?.split(',') || ['10.0.1.0/24', '10.0.2.0/24'];
-      const privateCidrs = params.private_subnet_cidrs?.split(',') || ['10.0.10.0/24', '10.0.20.0/24'];
-      
-      return `# Data source for availability zones
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
-# Public Subnets
-${publicCidrs.map((cidr, index) => `
-resource "aws_subnet" "public_${index + 1}" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "${cidr.trim()}"
-  availability_zone       = data.aws_availability_zones.available.names[${index}]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "\${var.project_name}-public-subnet-${index + 1}"
-    Type = "Public"
-  }
-}`).join('')}
-
-# Private Subnets
-${privateCidrs.map((cidr, index) => `
-resource "aws_subnet" "private_${index + 1}" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "${cidr.trim()}"
-  availability_zone = data.aws_availability_zones.available.names[${index}]
-
-  tags = {
-    Name = "\${var.project_name}-private-subnet-${index + 1}"
-    Type = "Private"
-  }
-}`).join('')}
-
-# Route table for public subnets
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
-
-  tags = {
-    Name = "\${var.project_name}-public-rt"
-  }
-}
-
-# Associate public subnets with route table
-${publicCidrs.map((_, index) => `
-resource "aws_route_table_association" "public_${index + 1}" {
-  subnet_id      = aws_subnet.public_${index + 1}.id
-  route_table_id = aws_route_table.public.id
-}`).join('')}`;
-    },
-
-    ec2: (params: Record<string, string>) => `# Security Group for EC2 instances
-resource "aws_security_group" "ec2" {
-  name_prefix = "\${var.project_name}-ec2"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [aws_vpc.main.cidr_block]
-  }
-
-  ingress {
-    description = "HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "\${var.project_name}-ec2-sg"
-  }
-}
-
-# EC2 Instances
-resource "aws_instance" "main" {
-  count           = ${params.instance_count || '1'}
-  ami             = data.aws_ami.amazon_linux.id
-  instance_type   = "${params.instance_type || 't3.micro'}"
-  subnet_id       = aws_subnet.public_1.id
-  security_groups = [aws_security_group.ec2.id]
-
-  tags = {
-    Name = "\${var.project_name}-instance-\${count.index + 1}"
-  }
-}
-
-# Data source for Amazon Linux AMI
-data "aws_ami" "amazon_linux" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
-  }
-}`,
-
-    s3: (params: Record<string, string>) => `# S3 Bucket
-resource "aws_s3_bucket" "main" {
-  bucket = "${params.bucket_name || '\${var.project_name}-bucket-\${random_id.bucket_suffix.hex}'}"
-
-  tags = {
-    Name = "\${var.project_name}-bucket"
-  }
-}
-
-# S3 Bucket Versioning
-resource "aws_s3_bucket_versioning" "main" {
-  bucket = aws_s3_bucket.main.id
-  versioning_configuration {
-    status = "${params.versioning === 'true' ? 'Enabled' : 'Suspended'}"
-  }
-}
-
-# S3 Bucket Public Access Block
-resource "aws_s3_bucket_public_access_block" "main" {
-  bucket = aws_s3_bucket.main.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-# Random ID for bucket naming
-resource "random_id" "bucket_suffix" {
-  byte_length = 4
-}`
-  }
+  aws: awsTemplates,
+  azure: azureTemplates,
+  gcp: gcpTemplates
 };
 
-const generateVariablesFile = (provider: string) => `# Variables for ${provider.toUpperCase()} infrastructure
+const generateVariablesFile = (provider: string) => {
+  const baseVariables = `# Variables for ${provider.toUpperCase()} infrastructure
 
 variable "project_name" {
   description = "Name of the project, used for resource naming"
   type        = string
   default     = "terraform-generated"
-}
-
-variable "aws_region" {
-  description = "AWS region for resources"
-  type        = string
-  default     = "us-west-2"
 }
 
 variable "environment" {
@@ -200,12 +33,72 @@ variable "environment" {
   default     = "dev"
 }`;
 
-const generateTerraformVars = (provider: string) => `# Terraform variables file
+  if (provider === 'aws') {
+    return baseVariables + `
+
+variable "aws_region" {
+  description = "AWS region for resources"
+  type        = string
+  default     = "us-west-2"
+}`;
+  } else if (provider === 'azure') {
+    return baseVariables + `
+
+variable "location" {
+  description = "Azure region for resources"
+  type        = string
+  default     = "East US"
+}
+
+variable "resource_group_name" {
+  description = "Name of the resource group"
+  type        = string
+  default     = "terraform-rg"
+}`;
+  } else if (provider === 'gcp') {
+    return baseVariables + `
+
+variable "project_id" {
+  description = "GCP project ID"
+  type        = string
+}
+
+variable "region" {
+  description = "GCP region for resources"
+  type        = string
+  default     = "us-central1"
+}
+
+variable "zone" {
+  description = "GCP zone for resources"
+  type        = string
+  default     = "us-central1-a"
+}`;
+  }
+  
+  return baseVariables;
+};
+
+const generateTerraformVars = (provider: string) => {
+  let vars = `# Terraform variables file
 # Edit these values according to your requirements
 
 project_name = "my-terraform-project"
-aws_region   = "us-west-2"
 environment  = "dev"`;
+
+  if (provider === 'aws') {
+    vars += `\naws_region   = "us-west-2"`;
+  } else if (provider === 'azure') {
+    vars += `\nlocation            = "East US"
+resource_group_name = "terraform-rg"`;
+  } else if (provider === 'gcp') {
+    vars += `\nproject_id = "my-gcp-project"
+region     = "us-central1"
+zone       = "us-central1-a"`;
+  }
+
+  return vars;
+};
 
 const generateOutputsFile = (selectedModules: string[]) => {
   let outputs = '# Outputs for generated infrastructure\n\n';
@@ -269,7 +162,9 @@ output "s3_bucket_arn" {
   return outputs;
 };
 
-const generateMainFile = (provider: string) => `# Main Terraform configuration
+const generateMainFile = (provider: string) => {
+  if (provider === 'aws') {
+    return `# Main Terraform configuration
 
 terraform {
   required_version = ">= 1.0"
@@ -297,6 +192,66 @@ provider "aws" {
     }
   }
 }`;
+  } else if (provider === 'azure') {
+    return `# Main Terraform configuration
+
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.1"
+    }
+  }
+}
+
+# Configure the Microsoft Azure Provider
+provider "azurerm" {
+  features {}
+}
+
+# Resource Group
+resource "azurerm_resource_group" "main" {
+  name     = var.resource_group_name
+  location = var.location
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}`;
+  } else if (provider === 'gcp') {
+    return `# Main Terraform configuration
+
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 4.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.1"
+    }
+  }
+}
+
+# Configure the Google Cloud Provider
+provider "google" {
+  project = var.project_id
+  region  = var.region
+  zone    = var.zone
+}`;
+  }
+  
+  return '';
+};
 
 export async function generateTerraformProject(options: GenerateOptions): Promise<void> {
   const { provider, selectedModules, parameters } = options;
@@ -312,7 +267,16 @@ export async function generateTerraformProject(options: GenerateOptions): Promis
   providerFolder.file('outputs.tf', generateOutputsFile(selectedModules));
   
   // Get module data
-  const modules = provider === 'aws' ? awsModules : [];
+  const getModules = () => {
+    switch (provider) {
+      case 'aws': return awsModules;
+      case 'azure': return azureModules;
+      case 'gcp': return gcpModules;
+      default: return [];
+    }
+  };
+  
+  const modules = getModules();
   const selectedModuleData = modules.filter(module => selectedModules.includes(module.id));
   
   // Group modules by category
@@ -330,9 +294,10 @@ export async function generateTerraformProject(options: GenerateOptions): Promis
     
     categoryModules.forEach(module => {
       const moduleParams = parameters[module.id] || {};
-      const template = templates[provider as keyof typeof templates]?.[module.id as keyof typeof templates.aws];
+      const providerTemplates = templates[provider as keyof typeof templates];
+      const template = providerTemplates?.[module.id as keyof typeof providerTemplates];
       
-      if (template) {
+      if (template && typeof template === 'function') {
         const content = template(moduleParams);
         categoryFolder.file(`${module.id}.tf`, content);
       }
