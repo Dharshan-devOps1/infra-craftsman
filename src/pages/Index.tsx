@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +9,8 @@ import { ModuleSelector } from "@/components/ModuleSelector";
 import { ParameterForm } from "@/components/ParameterForm";
 import { generateTerraformProject } from "@/utils/terraformGenerator";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Code, Zap, Shield, CheckCircle } from "lucide-react";
+import { Download, Code, Zap, Shield, CheckCircle, ArrowRight, Users, BarChart3 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 type Step = "provider" | "modules" | "parameters" | "generate";
 
@@ -89,7 +91,7 @@ const Index = () => {
   const canGenerate = selectedProvider && selectedModules.length > 0;
 
   return (
-    <div className="min-h-screen bg-background">
+    <Layout>
       {/* Hero Section */}
       <div className="relative overflow-hidden bg-gradient-secondary">
         <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
@@ -122,6 +124,28 @@ const Index = () => {
                   <Shield className="h-5 w-5 text-primary" />
                   <span className="text-sm">Best Practices</span>
                 </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex flex-wrap justify-center gap-4 pt-8">
+                <Button asChild variant="outline">
+                  <Link to="/dashboard">
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    View Dashboard
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link to="/modules">
+                    <Code className="h-4 w-4 mr-2" />
+                    Browse Modules
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link to="/profile">
+                    <Users className="h-4 w-4 mr-2" />
+                    My Profile
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
@@ -293,7 +317,7 @@ const Index = () => {
           </div>
         )}
       </div>
-    </div>
+    </Layout>
   );
 };
 
